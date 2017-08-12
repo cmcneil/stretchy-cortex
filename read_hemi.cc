@@ -42,17 +42,27 @@ class GLManager {
    int init();
    void run();
    void pointsToVBO(std::vector<glm::vec3>);
+   void pointsToIDX(std::vector<unsigned int>);
+   void meshLoad(std::vector<glm::vec3>, std::vector<unsigned int>);
 
  private:
    int winx, winy;
    GLFWwindow* window;
+
+   int n_cortex_verts; // number of vertices in the mesh
+   int n_poly_idx; // number of polys in the mesh
+
+   // OpenGL objects:
    GLuint shaderProgramID;
-   int n_cortex_verts;
-   GLuint mesh_buffer;
-   GLuint triangle_vao;
-   GLuint mesh_vao;
+   GLuint mesh_buffer; // Mesh Vertex VBO
+   GLuint poly_idx_buffer; // Polys (as index array) Index VBO
+   GLuint mesh_vao; // Vertex Array for the above
    GLuint mvp_id;
+
+
+
    InputHandler* input_handler;
+
 };
 
 int GLManager::init() {
@@ -107,9 +117,6 @@ int GLManager::init() {
 }
 
 void GLManager::run() {
-  glfwSetCursorPos(this->window, 1024/2, 768/2);
-  glfwSetCursorPos(this->window, 1024/2, 768/2+1);
-  glfwSetCursorPos(this->window, 1024/2, 768/2);
   do {
       // Draw nothing, see you in tutorial 2 !
       // Swap buffers
@@ -124,10 +131,8 @@ void GLManager::run() {
   		glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
       glUniformMatrix4fv(this->mvp_id, 1, GL_FALSE, &MVP[0][0]);
 
-      // glBindVertexArray(this->triangle_vao);
-      // glDrawArrays(GL_TRIANGLES, 0, 3);
       glBindVertexArray(this->mesh_vao);
-      glDrawArrays(GL_POINTS, 0, this->n_cortex_verts);
+      glDrawElements(GL_TRIANGLES, this->n_poly_idx, GL_UNSIGNED_INT, 0);
 
       glfwSwapBuffers(this->window);
       glfwPollEvents();
@@ -136,6 +141,7 @@ void GLManager::run() {
           glfwWindowShouldClose(this->window) == 0);
   // Cleanup VBO and shader
 	glDeleteBuffers(1, &this->mesh_buffer);
+  glDeleteBuffers(1, &this->poly_idx_buffer);
 	glDeleteProgram(this->shaderProgramID);
 	glDeleteVertexArrays(1, &this->mesh_vao);
 
@@ -143,23 +149,58 @@ void GLManager::run() {
 	glfwTerminate();
 }
 
+void GLManager::meshLoad(std::vector<glm::vec3> pts, std::vector<unsigned int> idx) {
+	glGenBuffers(1, &this->mesh_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, this->mesh_buffer);
+	glBufferData(GL_ARRAY_BUFFER, pts.size() * sizeof(glm::vec3),
+               &pts[0], GL_STATIC_DRAW);
+
+ 	glGenBuffers(1, &this->poly_idx_buffer);
+ 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->poly_idx_buffer);
+ 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx.size() * sizeof(unsigned int),
+               &idx[0] , GL_STATIC_DRAW);
+
+  glGenVertexArrays(1, &this->mesh_vao);
+  glBindVertexArray(this->mesh_vao);
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, this->mesh_buffer);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->poly_idx_buffer);
+
+  this->n_poly_idx = idx.size();
+  this->n_cortex_verts = pts.size();
+}
+
 void GLManager::pointsToVBO(std::vector<glm::vec3> points) {
   glGenBuffers(1, &this->mesh_buffer);
   glBindBuffer(GL_ARRAY_BUFFER, this->mesh_buffer);
   glBufferData(GL_ARRAY_BUFFER, points.size() * sizeof(glm::vec3),
                &points[0], GL_STATIC_DRAW);
+
   glGenVertexArrays(1, &this->mesh_vao);
   glBindVertexArray(this->mesh_vao);
   glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, this->mesh_buffer);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
   this->n_cortex_verts = points.size();
+  cout << "finished writing buffer" << endl;
+}
+
+void GLManager::pointsToIDX(std::vector<unsigned int> idx) {
+  cout << "copying idx to VBO" << endl;
+  glGenBuffers(1, &this->poly_idx_buffer);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->poly_idx_buffer);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx.size() * sizeof(unsigned int),
+               &idx[0], GL_STATIC_DRAW);
+  this->n_poly_idx = idx.size();
+  cout << "VBO set up" << endl;
 }
 
 std::vector<glm::vec3> giiToVertices(giiDataArray *d) {
   std::vector<glm::vec3> out_vertices;
   int c, size;
   float *newarr = new float[d->nvals];
+  assert(d->datatype == NIFTI_TYPE_FLOAT32);
   gifti_copy_data_as_float(newarr, NIFTI_TYPE_FLOAT32, d->data, d->datatype, d->nvals);
 
   float maxx, maxy, minx, miny = 0;
@@ -186,6 +227,20 @@ std::vector<glm::vec3> giiToVertices(giiDataArray *d) {
   return out_vertices;
 }
 
+std::vector<unsigned int> giiToIndices(giiDataArray *d) {
+  std::vector<unsigned int> out_vertices;
+  int c, size;
+  assert(d->datatype == NIFTI_TYPE_INT32);
+  float *newarr = new float[d->nvals];
+  gifti_copy_data_as_float(newarr, NIFTI_TYPE_FLOAT32, d->data, d->datatype, d->nvals);
+  cout << "reading indices" << endl;
+  for (int i = 0; i < d->nvals; i++) { //d->nvals
+    out_vertices.push_back(static_cast<unsigned int>(newarr[i]));
+  }
+  cout << "idx read" << endl;
+  return out_vertices;
+}
+
 int main(int argc, char *argv[]) {
   gifti_image *out_im;
   cout << "input argument: " << argv[1] << endl;
@@ -198,15 +253,18 @@ int main(int argc, char *argv[]) {
   }
 
 
-  giiDataArray *d = out_im->darray[0];
-  gifti_disp_raw_data(d->data, d->datatype, 5, 1, stdout);
+  giiDataArray *pts = out_im->darray[0];
+  giiDataArray *triangles = out_im->darray[1];
+  gifti_disp_raw_data(triangles->data, triangles->datatype, 100, 1, stdout);
 
   cout << "successfully read data" << endl;
 
   GLManager* manager = new GLManager(1024, 768);
   manager->init();
   glEnable(GL_DEBUG_OUTPUT);
-  manager->pointsToVBO(giiToVertices(d));
+  manager->meshLoad(giiToVertices(pts), giiToIndices(triangles));
+
+  cout << "loaded buffers " << endl;
   manager->run();
 
   return 0;
