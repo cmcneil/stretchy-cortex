@@ -121,10 +121,10 @@ void freeDevArr(devarray* arr, size_t total_pts) {
   // cudaFree(arr);
 }
 
-devarray<unsigned int>* polysToAdjacencyList(vector<vec3> pts,
-                                             vector<unsigned int> polys,
-                                             devarray<unsigned int>* cuda_adj_list,
-                                             devarray<float>* cuda_init_dist) {
+polysToAdjacencyList(vector<vec3> pts,
+                     vector<unsigned int> polys,
+                     devarray<unsigned int>** cuda_adj_list,
+                     devarray<float>** cuda_init_dist) {
   // Alright, this function is a bit grungy.
   // First, we make a nice, C++ typed data structure that makes sense for the
   // adjacency matrix (sparsely represented), and load the data into that:
@@ -180,12 +180,15 @@ devarray<unsigned int>* polysToAdjacencyList(vector<vec3> pts,
   }
   // Now, take the temp array (of structs containing GPU pointers)
   // we've built up, and copy it to the GPU.
-  devarray* cuda_adjacency_list;
-  cudaMalloc((void **) &cuda_adjacency_list, sizeof(devarray)*adjacency_list.size());
-  cudaMemcpy(cuda_adjacency_list, temp_adjacency_list,
-             sizeof(devarray)*adjacency_list.size(), cudaMemcpyHostToDevice);
+  cudaMalloc((void **) cuda_adj_list, sizeof(devarray<unsigned int>)*adjacency_list.size());
+  cudaMemcpy(cuda_adj_list, temp_adjacency_list,
+             sizeof(devarray<unsigned int>)*adjacency_list.size(), cudaMemcpyHostToDevice);
 
-  return cuda_adjacency_list;
+  cudaMalloc((void **) cuda_init_dist, sizeof(devarray<float>)*adjacency_list.size());
+  cudaMemcpy(cuda_init_dist, temp_dist_list,
+             sizeof(devarray<float>)*adjacency_list.size(), cudaMemcpyHostToDevice);
+
+  // return cuda_adjacency_list;
 }
 
 void printAdjList(vector<list<unsigned int>> l) {
@@ -224,7 +227,8 @@ class GLManager {
    GLuint mvp_id;
 
    float g_fAnim = 0.0f;
-   devarray* cuda_adjacency_list;
+   devarray<unsigned int>* cuda_adjacency_list;
+   devarray<float>* cuda_init_dist;
 
    vec3* cuda_prev_positions;
    InputHandler* input_handler;
@@ -348,7 +352,7 @@ void GLManager::run() {
 void GLManager::meshLoad(std::vector<glm::vec3> pts, std::vector<unsigned int> idx) {
   // CUDA STUFF
   // cudaMalloc((void **)&d_vbo_buffer, pts.size() * sizeof(glm::vec3));
-  this->cuda_adjacency_list = polysToAdjacencyList(pts, idx);
+  polysToAdjacencyList(pts, idx, &this->cuda_adjacency_list, &this->cuda_init_dist);
   cudaMalloc((void **) &this->cuda_prev_positions, sizeof(vec3)*pts.size());
   cudaMemcpy(this->cuda_prev_positions, &pts[0], sizeof(vec3)*pts.size(),
              cudaMemcpyHostToDevice);
@@ -463,7 +467,7 @@ int main(int argc, char *argv[]) {
   GLManager* manager = new GLManager(1024, 768);
   manager->init();
   // glEnable(GL_DEBUG_OUTPUT);
-  auto adj_list = polysToAdjacencyList(giiToVertices(pts), giiToIndices(triangles));
+  // auto adj_list = polysToAdjacencyList(giiToVertices(pts), giiToIndices(triangles));
   // printAdjList(adj_list);
   manager->meshLoad(giiToVertices(pts), giiToIndices(triangles));
 
