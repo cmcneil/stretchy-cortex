@@ -3,7 +3,7 @@
 
 class InputHandler {
  public:
-	InputHandler(GLFWwindow* _window);
+	InputHandler(GLFWwindow* _window, bool _enable_rotate);
 	glm::mat4 getViewMatrix();
 	glm::mat4 getProjectionMatrix();
 	void computeMatricesFromInputs();
@@ -24,6 +24,7 @@ class InputHandler {
   float FoV = initialFoV;
 	float speed = 3.0f; // 3 units / second
 	float mouseSpeed = 0.005f;
+  bool enable_rotate;
 };
 
 #endif

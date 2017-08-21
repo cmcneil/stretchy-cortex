@@ -18,8 +18,9 @@ void handleScrollZoom(GLFWwindow* win, double xoffset, double yoffset) {
 }
 
 // ### CLASS METHODS ### //
-InputHandler::InputHandler(GLFWwindow* window) {
+InputHandler::InputHandler(GLFWwindow* window, bool enable_rotate) {
 	this->window = window;
+	this->enable_rotate = enable_rotate;
 
 	glfwSetWindowUserPointer(this->window, this);
 	glfwSetScrollCallback(this->window, handleScrollZoom);
@@ -53,8 +54,10 @@ void InputHandler::computeMatricesFromInputs(){
 	glfwSetCursorPos(this->window, 1024/2, 768/2);
 
 	// Compute new orientation
-	this->horizontalAngle += this->mouseSpeed * float(1024/2 - xpos );
-	this->verticalAngle   += this->mouseSpeed * float( 768/2 - ypos );
+	if(this->enable_rotate) {
+		this->horizontalAngle += this->mouseSpeed * float(1024/2 - xpos );
+		this->verticalAngle   += this->mouseSpeed * float( 768/2 - ypos );
+  }
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	glm::vec3 direction(
@@ -73,13 +76,14 @@ void InputHandler::computeMatricesFromInputs(){
 	// Up vector
 	glm::vec3 up = glm::cross( right, direction );
 
-	// Move forward
+
+	// strafe up
 	if (glfwGetKey( window, GLFW_KEY_UP ) == GLFW_PRESS){
-		position += direction * deltaTime * this->speed;
+		position += up * deltaTime * this->speed;
 	}
-	// Move backward
+	// strafe down
 	if (glfwGetKey( window, GLFW_KEY_DOWN ) == GLFW_PRESS){
-		position -= direction * deltaTime * this->speed;
+		position -= up * deltaTime * this->speed;
 	}
 	// Strafe right
 	if (glfwGetKey( window, GLFW_KEY_RIGHT ) == GLFW_PRESS){
