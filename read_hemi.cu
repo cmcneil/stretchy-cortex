@@ -351,7 +351,6 @@ void GLManager::run() {
 
 void GLManager::meshLoad(std::vector<glm::vec3> pts, std::vector<unsigned int> idx) {
   // CUDA STUFF
-  // cudaMalloc((void **)&d_vbo_buffer, pts.size() * sizeof(glm::vec3));
   polysToAdjacencyList(pts, idx, &this->cuda_adjacency_list, &this->cuda_init_dist);
   cudaMalloc((void **) &this->cuda_prev_positions, sizeof(vec3)*pts.size());
   cudaMemcpy(this->cuda_prev_positions, &pts[0], sizeof(vec3)*pts.size(),
