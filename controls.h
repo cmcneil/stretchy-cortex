@@ -8,6 +8,8 @@ class InputHandler {
 	glm::mat4 getProjectionMatrix();
 	void computeMatricesFromInputs();
   void updateFoV(double offset);
+  float getForceData();
+  float getForceMesh();
 
  private:
 	GLFWwindow* window;
@@ -25,6 +27,9 @@ class InputHandler {
 	float speed = 3.0f; // 3 units / second
 	float mouseSpeed = 0.005f;
   bool enable_rotate;
+
+  float k_data = 0.00001f;
+  float k_mesh = 0.01f;
 };
 
 #endif

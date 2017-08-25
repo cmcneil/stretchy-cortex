@@ -37,6 +37,14 @@ glm::mat4 InputHandler::getProjectionMatrix(){
 	return ProjectionMatrix;
 }
 
+float InputHandler::getForceData() {
+	return this->k_data;
+}
+
+float InputHandler::getForceMesh() {
+	return this->k_mesh;
+}
+
 void InputHandler::computeMatricesFromInputs(){
 
 	// glfwGetTime is called only once, the first time this function is called
